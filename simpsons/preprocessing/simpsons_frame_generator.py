@@ -38,6 +38,9 @@ class SimpsonsFrameGenerator:
     GENERATE_RESCALE_INTERP = 'nearest'
     def generate(  self, X,y, output_shape=(100,100), batch_size=32,
                         train_shape_range=[1.,1.],
+                        aug_horizontal_flip=True,
+                        aug_rotation_range=0.0,
+                        aug_shift_range=0.0,
                         max_num_characters=1, num_characters_probs=None):
 
         # check arguments
@@ -53,10 +56,10 @@ class SimpsonsFrameGenerator:
 
 
         img_augmentor = keras.preprocessing.image.ImageDataGenerator(
-            rotation_range=0.0,
-            width_shift_range=0.0,
-            height_shift_range=0.0,
-            horizontal_flip=True,
+            rotation_range=aug_rotation_range,
+            width_shift_range=aug_shift_range,
+            height_shift_range=aug_shift_range,
+            horizontal_flip=aug_horizontal_flip,
             zoom_range=0.0)  # we don't zoom here. we resize the whole train image before patching
 
         # main generator loop
@@ -110,6 +113,12 @@ class SimpsonsFrameGenerator:
 
                         rescale_factor = np.random.uniform(*train_shape_range)
                         train_img = self.rescale_img(train_img, rescale_factor)
+
+                        # crop middle part if needed (if img is larger than bg)
+                        img_start_h = max(0, train_img.shape[0] - output_shape[0]) // 2
+                        img_start_w = max(0, train_img.shape[1] - output_shape[1]) // 2
+                        print(img_start_h, img_start_w, output_shape)
+                        train_img = train_img[img_start_h:img_start_h+output_shape[0], img_start_w:img_start_w+output_shape[1]]
 
                         training_images.append(train_img)
                         y_gen[j] += y_batch[char_ind]
@@ -180,13 +189,6 @@ class SimpsonsFrameGenerator:
             bg[r:r+img.shape[0], c:c+img.shape[1], :][~img_bg_indices] = img[~img_bg_indices]
 
         return bg
-
-        # Add blur
-        # bg = PIL.Image.fromarray((bg*255.).astype('uint8'))
-        # bg = bg.filter(PIL.ImageFilter.GaussianBlur(radius=self.GENERATE_BLUR_RADIUS))
-        # bg = np.array(bg)/255.
-
-        #return bg
 
 
     def randomly_crop_img(self, img, crop_size):
