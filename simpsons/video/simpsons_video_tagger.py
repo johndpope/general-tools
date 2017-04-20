@@ -12,7 +12,7 @@ from moviepy.editor import VideoFileClip
 
 
 INDICATORS_CHAR_NAMES = ["bart", "homer", "lisa", "marge"]
-INDICATORS_ICONS_FOLDER = "/data/simpsons/videp/characters"
+INDICATORS_ICONS_FOLDER = "/data/simpsons/video/characters"
 
 make_keras_picklable()
 
