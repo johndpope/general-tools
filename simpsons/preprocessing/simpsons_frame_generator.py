@@ -51,8 +51,6 @@ class SimpsonsFrameGenerator:
         else:
             if len(num_characters_probs) != max_num_characters+1:
                 raise Exception("num_characters_probs must be of length {}".format(max_num_characters+1))
-            #if np.sum(num_characters_probs) != 1.0:
-            #    raise Exception("sum(num_characters_probs) must be 1.0")
 
 
         img_augmentor = keras.preprocessing.image.ImageDataGenerator(
@@ -117,7 +115,6 @@ class SimpsonsFrameGenerator:
                         # crop middle part if needed (if img is larger than bg)
                         img_start_h = max(0, train_img.shape[0] - output_shape[0]) // 2
                         img_start_w = max(0, train_img.shape[1] - output_shape[1]) // 2
-                        print(img_start_h, img_start_w, output_shape)
                         train_img = train_img[img_start_h:img_start_h+output_shape[0], img_start_w:img_start_w+output_shape[1]]
 
                         training_images.append(train_img)
