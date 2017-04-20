@@ -12,6 +12,7 @@ from moviepy.editor import VideoFileClip
 
 
 INDICATORS_CHAR_NAMES = ["bart", "homer", "lisa", "marge"]
+INDICATORS_ICONS_FOLDER = "/data/simpsons/videp/characters"
 
 make_keras_picklable()
 
@@ -35,14 +36,14 @@ def _load_indicator_images(folder, grayscaled):
 
 
 class SimpsonsVideoTagger:
-    def __init__(self, model, thresholds, preprocess_pipeline=None, indicators_icons_folder="data/video/characters"):
+    def __init__(self, model, thresholds, preprocess_pipeline=None):
         self.model = model
         self.thresholds = thresholds
         self.preprocess_pipeline = preprocess_pipeline
 
         self.indicator_icons = [
-            _load_indicator_images(indicators_icons_folder, grayscaled=True),
-            _load_indicator_images(indicators_icons_folder, grayscaled=False)
+            _load_indicator_images(INDICATORS_ICONS_FOLDER, grayscaled=True),
+            _load_indicator_images(INDICATORS_ICONS_FOLDER, grayscaled=False)
         ]
 
 
