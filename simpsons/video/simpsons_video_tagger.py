@@ -86,39 +86,45 @@ class SimpsonsVideoTagger:
         original_video = VideoFileClip(input_video_filename)
 
         fr_ext = VideoFrameExtractor(input_video_filename)
-        frames, frames_ts = fr_ext.extract(**extractor_params)
 
-        # Create the indicators clip (bottom)
-        frames_preds = self._predict(frames)
-        ind_frame_funcs = self._create_indicators_make_frame_funcs(frames_preds, frames_ts)
+        clips = []
 
-        ind_clips = []
-        max_x = 0
-        max_y = 0
-        for i, func in enumerate(ind_frame_funcs):
-            clip = moviepy.editor.VideoClip(func, duration=original_video.duration)
-            clip.fps = max(int(frames.shape[0] / original_video.duration), 1)
-            clip = clip.set_pos((max_x,0))
+        for frames, frames_ts in fr_ext.extract(**extractor_params):
+            # Create the indicators clip (bottom)
+            frames_preds = self._predict(frames)
+            ind_frame_funcs = self._create_indicators_make_frame_funcs(frames_preds, frames_ts)
 
-            max_x += clip.size[0]
-            max_y = max(max_y, clip.size[1])
+            ind_clips = []
+            max_x = 0
+            max_y = 0
+            for i, func in enumerate(ind_frame_funcs):
+                clip = moviepy.editor.VideoClip(func, duration=original_video.duration)
+                clip.fps = max(int(frames.shape[0] / original_video.duration), 1)
+                clip = clip.set_pos((max_x,0))
 
-            ind_clips.append(clip)
+                max_x += clip.size[0]
+                max_y = max(max_y, clip.size[1])
 
-        ind_clip = moviepy.editor.CompositeVideoClip(ind_clips, size=(max_x, max_y))
+                ind_clips.append(clip)
 
-        # compose the full clip
-        orig_x, orig_y = original_video.size
-        ind_x, ind_y = ind_clip.size
+            ind_clip = moviepy.editor.CompositeVideoClip(ind_clips, size=(max_x, max_y))
 
-        text = moviepy.editor.TextClip("zachmoshe.com", color='white', fontsize=20)
-        text_x, text_y = text.size
+            # compose the full clip
+            orig_x, orig_y = original_video.size
+            ind_x, ind_y = ind_clip.size
 
-        clip = moviepy.editor.CompositeVideoClip([
-                original_video.set_pos((0,0)),
-                ind_clip.set_pos(((orig_x-ind_x)//2, orig_y)),
-                text.set_pos((10, orig_y+ind_y-text_y-10))
-            ],
-            size=(orig_x, orig_y+ind_y))
-        clip = clip.set_duration(original_video.duration)
-        return clip
+            text = moviepy.editor.TextClip("zachmoshe.com", color='white', fontsize=20)
+            text_x, text_y = text.size
+
+            clip = moviepy.editor.CompositeVideoClip([
+                    original_video.set_pos((0,0)),
+                    ind_clip.set_pos(((orig_x-ind_x)//2, orig_y)),
+                    text.set_pos((10, orig_y+ind_y-text_y-10))
+                ],
+                size=(orig_x, orig_y+ind_y))
+            clip = clip.set_duration(original_video.duration)
+
+            clips.append(clip)
+
+        concat_clips = moviepy.editor.concatenate_videoclips(clips)
+        return concat_clips
