@@ -5,6 +5,10 @@ import moviepy
 import numpy as np
 from moviepy.editor import VideoFileClip
 
+import logging
+log = logging.getLogger(__name__)
+
+
 # No idea if I really need this or something was wrong with my installation...
 #from moviepy.config import change_settings
 #change_settings({"IMAGEMAGICK_BINARY": "/usr/local/Cellar/imagemagick/7.0.5-4/bin/convert"})
@@ -60,6 +64,7 @@ class SimpsonsVideoTagger:
 
     def _create_indicators_make_frame_funcs(self, preds, ts):
         ts = np.array(ts)
+        ts -= ts[0]  # make ts relative to start
 
         def make_indicator_frame(char_id):
             char_preds = preds[:,char_id]
@@ -82,19 +87,24 @@ class SimpsonsVideoTagger:
         return funcs
 
 
-    def tag(self, input_video_filename, extractor_params={}):
+    def tag(self, input_video_filename, extractor_params={}, smooth_predictions=True):
         original_video = VideoFileClip(input_video_filename)
+        preds_smoother = simpsons.utils.BooleanPredictionSmoother(4,1)
 
         fr_ext = VideoFrameExtractor(input_video_filename)
 
-        clips = []
+        ind_clips = []
 
         for frames, frames_ts in fr_ext.extract(**extractor_params):
             # Create the indicators clip (bottom)
+            log.info("Processing frames batch ({} frames). Timestamp range: {}-{}".format(len(frames), frames_ts[0], frames_ts[-1]))
             frames_preds = self._predict(frames)
+            if smooth_predictions:
+                frames_preds = preds_smoother.transform(frames_preds)
+            log.info("Got predictions for batch")
             ind_frame_funcs = self._create_indicators_make_frame_funcs(frames_preds, frames_ts)
 
-            ind_clips = []
+            chars_ind_clips = []
             max_x = 0
             max_y = 0
             for i, func in enumerate(ind_frame_funcs):
@@ -105,26 +115,26 @@ class SimpsonsVideoTagger:
                 max_x += clip.size[0]
                 max_y = max(max_y, clip.size[1])
 
-                ind_clips.append(clip)
+                chars_ind_clips.append(clip)
 
-            ind_clip = moviepy.editor.CompositeVideoClip(ind_clips, size=(max_x, max_y))
+            ind_clip = moviepy.editor.CompositeVideoClip(chars_ind_clips, size=(max_x, max_y))
+            ind_clips.append(ind_clip)
+            log.info("Indicators clip for batch was created")
+        ind_clip = moviepy.editor.concatenate_videoclips(ind_clips)
 
-            # compose the full clip
-            orig_x, orig_y = original_video.size
-            ind_x, ind_y = ind_clip.size
+        # compose the full clip
+        orig_x, orig_y = original_video.size
+        ind_x, ind_y = ind_clip.size
 
-            text = moviepy.editor.TextClip("zachmoshe.com", color='white', fontsize=20)
-            text_x, text_y = text.size
+        text = moviepy.editor.TextClip("zachmoshe.com", color='white', fontsize=20)
+        text_x, text_y = text.size
 
-            clip = moviepy.editor.CompositeVideoClip([
-                    original_video.set_pos((0,0)),
-                    ind_clip.set_pos(((orig_x-ind_x)//2, orig_y)),
-                    text.set_pos((10, orig_y+ind_y-text_y-10))
-                ],
-                size=(orig_x, orig_y+ind_y))
-            clip = clip.set_duration(original_video.duration)
+        clip = moviepy.editor.CompositeVideoClip([
+                original_video.set_pos((0,0)),
+                ind_clip.set_pos(((orig_x-ind_x)//2, orig_y)),
+                text.set_pos((10, orig_y+ind_y-text_y-10))
+            ],
+            size=(orig_x, orig_y+ind_y))
+        clip = clip.set_duration(original_video.duration)
 
-            clips.append(clip)
-
-        concat_clips = moviepy.editor.concatenate_videoclips(clips)
-        return concat_clips
+        return clip
