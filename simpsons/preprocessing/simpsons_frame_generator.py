@@ -5,12 +5,15 @@ from moviepy.editor import VideoFileClip
 import keras.preprocessing.image
 import PIL
 import math
-
+#from multiprocessing import Pool
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import logging
 log = logging.getLogger(__name__)
 
 __all__ = ['SimpsonsFrameGenerator']
+
 
 
 class SimpsonsFrameGenerator:
@@ -77,54 +80,25 @@ class SimpsonsFrameGenerator:
                 y_gen = np.zeros((batch_size, y.shape[1]))
 
                 available_y_labels = np.vstack({tuple(row) for row in y_batch})
-                num_available_y_labels = available_y_labels.shape[0]
 
                 # iterate over all augmented training set images and stitch them
-                for j in range(batch_size):
-                    bg_ind = np.random.randint(self.background_images.shape[0])
+                f = partial(self.generate_training_image, X_batch, y_batch, output_shape, available_y_labels,
+                            max_num_characters, num_characters_probs, train_shape_range)
 
-                    num_characters = np.random.choice(max_num_characters+1, p=num_characters_probs)
-                    chosen_chars_inds = np.random.choice(num_available_y_labels, num_characters, replace=(num_characters > num_available_y_labels))
-                    chars_ind = []
-                    for ind in chosen_chars_inds:
-                        chosen_char_label = available_y_labels[ind]
-                        random_char_ind = np.random.choice(
-                                np.argwhere(np.all(y_batch == chosen_char_label, axis=1)).flatten()
-                            )
-                        chars_ind.append(random_char_ind)
+                with ThreadPoolExecutor(max_workers=32) as pool:
+                    futures = []
+                    for b in range(batch_size):
+                        futures.append(pool.submit(f))
 
-                    chars_ind = np.array(chars_ind, dtype=int)
-                    # sort chars_inds so images with trained characters (y!=0 somewhere) will be last so
-                    # we won't override them while patching multiple characters
-                    chars_ind = chars_ind[y_batch[chars_ind].sum(axis=1).argsort()]
+                    for j, future in enumerate(as_completed(futures)):
+                        training_img, training_img_y = future.result()
+                        X_gen[j] = training_img
+                        y_gen[j] = training_img_y
 
-                    bg = self.background_images[bg_ind]
-                    cropped_bg = self.randomly_crop_img(bg, output_shape)
 
-                    # get the rescalaed training images we want to patch
-                    training_images = []
-                    for char_ind in chars_ind:
-                        # get the char training image
-                        train_img = X_batch[char_ind].copy()
-
-                        train_img = self.trim_nan_edges(train_img)
-
-                        rescale_factor = np.random.uniform(*train_shape_range)
-                        train_img = self.rescale_img(train_img, rescale_factor)
-
-                        # crop middle part if needed (if img is larger than bg)
-                        img_start_h = max(0, train_img.shape[0] - output_shape[0]) // 2
-                        img_start_w = max(0, train_img.shape[1] - output_shape[1]) // 2
-                        train_img = train_img[img_start_h:img_start_h+output_shape[0], img_start_w:img_start_w+output_shape[1]]
-
-                        training_images.append(train_img)
-                        y_gen[j] += y_batch[char_ind]
-
-                    # then, place them randomly on the background
-                    final_img = self.patch_images_on_background(cropped_bg, training_images)
-
-                    X_gen[j] = final_img
-                    y_gen = np.clip(y_gen, 0., 1.)
+                # there is a race condition here but we don't mind as a single increment
+                # in enough (increments might get lost, but one will pass)
+                y_gen = np.clip(y_gen, 0., 1.)
 
                 # preprocess if needed:
                 if self.preprocess_pipeline:
@@ -132,6 +106,58 @@ class SimpsonsFrameGenerator:
 
                 # generate results
                 yield X_gen, y_gen
+
+
+
+
+    # generates a random single training image
+    def generate_training_image(self, X_batch, y_batch, output_shape, available_y_labels, max_num_characters, num_characters_probs, train_shape_range):
+        bg_ind = np.random.randint(self.background_images.shape[0])
+
+        num_characters = np.random.choice(max_num_characters+1, p=num_characters_probs)
+        chosen_chars_inds = np.random.choice(available_y_labels.shape[0], num_characters, replace=(num_characters > available_y_labels.shape[0]))
+        chars_ind = []
+        for ind in chosen_chars_inds:
+            chosen_char_label = available_y_labels[ind]
+            random_char_ind = np.random.choice(
+                    np.argwhere(np.all(y_batch == chosen_char_label, axis=1)).flatten()
+                )
+            chars_ind.append(random_char_ind)
+
+        chars_ind = np.array(chars_ind, dtype=int)
+        # sort chars_inds so images with trained characters (y!=0 somewhere) will be last so
+        # we won't override them while patching multiple characters
+        chars_ind = chars_ind[y_batch[chars_ind].sum(axis=1).argsort()]
+
+        bg = self.background_images[bg_ind]
+        cropped_bg = self.randomly_crop_img(bg, output_shape)
+
+        # get the rescalaed training images we want to patch
+        training_images = []
+        final_y = np.zeros(y_batch.shape[1])
+
+        for char_ind in chars_ind:
+            # get the char training image
+            train_img = X_batch[char_ind].copy()
+
+            train_img = self.trim_nan_edges(train_img)
+
+            rescale_factor = np.random.uniform(*train_shape_range)
+            train_img = self.rescale_img(train_img, rescale_factor)
+
+            # crop middle part if needed (if img is larger than bg)
+            img_start_h = max(0, train_img.shape[0] - output_shape[0]) // 2
+            img_start_w = max(0, train_img.shape[1] - output_shape[1]) // 2
+            train_img = train_img[img_start_h:img_start_h+output_shape[0], img_start_w:img_start_w+output_shape[1]]
+
+            training_images.append(train_img)
+            #y_gen[j] += y_batch[char_ind]
+            final_y += y_batch[char_ind]
+
+        # then, place them randomly on the background
+        final_img = self.patch_images_on_background(cropped_bg, training_images)
+
+        return final_img, final_y
 
 
     # trims nans from the edges of the image (if the character is in the middle for example)
