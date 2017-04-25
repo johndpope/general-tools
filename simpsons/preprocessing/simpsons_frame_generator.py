@@ -151,11 +151,11 @@ class SimpsonsFrameGenerator:
             train_img = train_img[img_start_h:img_start_h+output_shape[0], img_start_w:img_start_w+output_shape[1]]
 
             training_images.append(train_img)
-            #y_gen[j] += y_batch[char_ind]
             final_y += y_batch[char_ind]
 
         # then, place them randomly on the background
         final_img = self.patch_images_on_background(cropped_bg, training_images)
+
 
         return final_img, final_y
 
