@@ -4,6 +4,7 @@ from PIL import Image
 import moviepy
 import numpy as np
 from moviepy.editor import VideoFileClip
+from simpsons.utils import BooleanPredictionSmoother
 
 import logging
 log = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ class SimpsonsVideoTagger:
 
     def tag(self, input_video_filename, extractor_params={}, smooth_predictions=True):
         original_video = VideoFileClip(input_video_filename)
-        preds_smoother = simpsons.utils.BooleanPredictionSmoother(4,1)
+        preds_smoother = BooleanPredictionSmoother(4,1)
 
         fr_ext = VideoFrameExtractor(input_video_filename)
 
