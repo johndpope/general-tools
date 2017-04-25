@@ -74,7 +74,8 @@ class SimpsonsFrameGenerator:
                 X_batch = X_perm[i*batch_size:(i+1)*batch_size]
                 y_batch = y_perm[i*batch_size:(i+1)*batch_size]
 
-                X_batch = next(img_augmentor.flow(X_batch, shuffle=False))
+                # at the moment - disable the img_augmentor. too heavy...
+                #X_batch = next(img_augmentor.flow(X_batch, shuffle=False))
 
                 X_gen = np.zeros((batch_size,) + output_shape + (3,))
                 y_gen = np.zeros((batch_size, y.shape[1]))
@@ -139,7 +140,6 @@ class SimpsonsFrameGenerator:
         for char_ind in chars_ind:
             # get the char training image
             train_img = X_batch[char_ind].copy()
-
             train_img = self.trim_nan_edges(train_img)
 
             rescale_factor = np.random.uniform(*train_shape_range)
