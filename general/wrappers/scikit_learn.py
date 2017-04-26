@@ -200,7 +200,7 @@ class BaseWrapper(object):
             gen_args = copy.deepcopy(self.filter_sk_params(self.generator_fn, kwargs))
             generator = self.generator_fn(x, y, **gen_args)
 
-            history = self.model.fit_generator(generator, samples_per_epoch=x.shape[0], **fit_args)
+            history = self.model.fit_generator(generator, **fit_args)
 
         else:
             fit_args = copy.deepcopy(self.filter_sk_params(Sequential.fit))
