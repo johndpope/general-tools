@@ -226,7 +226,7 @@ class SimpsonsFrameGenerator:
 
 
 
-    BACKGROUND_GEN_NUM_FRAMES_PER_EPISODE = 100
+    BACKGROUND_GEN_NUM_FRAMES_PER_EPISODE = 200
     BACKGROUND_SIMPSONS_YELLOW = np.array([255,217,15])/255
     BACKGROUND_BLACK = np.array([0,0,0])
     def load_background_images(self, videos_path, num_backgrounds, output_shape):
@@ -246,13 +246,13 @@ class SimpsonsFrameGenerator:
         # less than 75% black (not the credits for example)
         # thresholds were set heuristically
         bg_imgs = bg_imgs[
-                np.array([self.color_ratio(i, self.BACKGROUND_SIMPSONS_YELLOW)<0.01 for i in bg_imgs]) &
+                np.array([self.color_ratio(i, self.BACKGROUND_SIMPSONS_YELLOW)<0.05 for i in bg_imgs]) &
                 np.array([self.color_ratio(i, self.BACKGROUND_BLACK)<0.75 for i in bg_imgs])
             ][:num_backgrounds]
         return bg_imgs
 
     # measures the euclidian distance of all pixels from the given color. if it's
-    # less than 0.35 (heuristically set), it's considered as "a match"
+    # less than 0.25 (heuristically set), it's considered as "a match"
     # returns the % of pixels that had a match on that color.
     def color_ratio(self, img, color):
         return (np.sqrt(np.sum(np.square(img - color), axis=2)) < 0.25).mean()
