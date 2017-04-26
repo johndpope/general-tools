@@ -246,7 +246,7 @@ class SimpsonsFrameGenerator:
         # less than 75% black (not the credits for example)
         # thresholds were set heuristically
         bg_imgs = bg_imgs[
-                np.array([self.color_ratio(i, self.BACKGROUND_SIMPSONS_YELLOW)<0.05 for i in bg_imgs]) &
+                np.array([self.color_ratio(i, self.BACKGROUND_SIMPSONS_YELLOW)<0.01 for i in bg_imgs]) &
                 np.array([self.color_ratio(i, self.BACKGROUND_BLACK)<0.75 for i in bg_imgs])
             ][:num_backgrounds]
         return bg_imgs
