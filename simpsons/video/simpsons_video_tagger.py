@@ -85,7 +85,7 @@ class SimpsonsVideoTagger:
 
         for char_id in range(len(INDICATORS_CHAR_NAMES)):
             funcs.append(make_indicator_frame(char_id))
-        return funcs
+        return (funcs, ts[-1])
 
 
     def tag(self, input_video_filename, extractor_params={}, smooth_predictions=True):
@@ -103,13 +103,13 @@ class SimpsonsVideoTagger:
             if smooth_predictions:
                 frames_preds = preds_smoother.transform(frames_preds)
             log.info("Got predictions for batch")
-            ind_frame_funcs = self._create_indicators_make_frame_funcs(frames_preds, frames_ts)
+            ind_frame_funcs, ind_duration = self._create_indicators_make_frame_funcs(frames_preds, frames_ts)
 
             chars_ind_clips = []
             max_x = 0
             max_y = 0
             for i, func in enumerate(ind_frame_funcs):
-                clip = moviepy.editor.VideoClip(func, duration=original_video.duration)
+                clip = moviepy.editor.VideoClip(func, duration=ind_duration)
                 clip.fps = max(int(frames.shape[0] / original_video.duration), 1)
                 clip = clip.set_pos((max_x,0))
 
