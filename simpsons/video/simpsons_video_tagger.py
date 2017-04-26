@@ -66,6 +66,7 @@ class SimpsonsVideoTagger:
     def _create_indicators_make_frame_funcs(self, preds, ts):
         ts = np.array(ts)
         ts -= ts[0]  # make ts relative to start
+        duration = ts[-1] + (ts[-1] - ts[-2])  # should also count for the last frame
 
         def make_indicator_frame(char_id):
             char_preds = preds[:,char_id]
@@ -85,7 +86,7 @@ class SimpsonsVideoTagger:
 
         for char_id in range(len(INDICATORS_CHAR_NAMES)):
             funcs.append(make_indicator_frame(char_id))
-        return (funcs, ts[-1])
+        return (funcs, duration)
 
 
     def tag(self, input_video_filename, extractor_params={}, smooth_predictions=True):
