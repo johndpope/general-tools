@@ -74,8 +74,7 @@ class SimpsonsFrameGenerator:
                 X_batch = X_perm[i*batch_size:(i+1)*batch_size]
                 y_batch = y_perm[i*batch_size:(i+1)*batch_size]
 
-                # at the moment - disable the img_augmentor. too heavy...
-                X_batch = next(img_augmentor.flow(X_batch, shuffle=False))
+                X_batch = next(img_augmentor.flow(X_batch, batch_size=X_batch.shape[0], shuffle=False))
 
                 X_gen = np.zeros((batch_size,) + output_shape + (3,))
                 y_gen = np.zeros((batch_size, y.shape[1]))
