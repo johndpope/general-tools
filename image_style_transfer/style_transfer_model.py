@@ -53,37 +53,13 @@ class StyleTransferModel(general.tensorflow.BaseModelFn):
         self.var_image = tf.Variable(tf.zeros(self.param_image_shape), dtype=np.float32)
 
         with tf.variable_scope('vgg19'):
-            self.base_vgg19 = tf.contrib.keras.applications.VGG19(weights=None, include_top=False) 
-
-
-
-        # extract VGG features from content and style images
-
-        # self.content_vgg_features = self.extract_outputs_from_keras_model(
-        #     self.base_vgg19, [self.vgg_content_output_layer])(tf.expand_dims(norm_content, 0))
-        self.content_vgg_features = self.vgg_features(self.input_content, [self.vgg_content_output_layer])
-
-        # norm_style = tf.subtract(self.input_style, self.vgg_mean_pixels, name='norm_style')
-        # self.style_vgg_features = self.extract_outputs_from_keras_model(
-        #     self.base_vgg19, self.vgg_style_output_layers)(tf.expand_dims(norm_style, 0))
-        self.style_vgg_features = self.vgg_features(self.input_style, self.vgg_style_output_layers)
-
-        # create tensors for vgg_features for the var_image
-        # norm_var_image = tf.subtract(self.var_image, self.vgg_mean_pixels, name='norm_var_image')
-
-        # self.var_image_vgg19_content_features = self.extract_outputs_from_keras_model(
-        #     self.base_vgg19, [self.vgg_content_output_layer])(tf.expand_dims(norm_var_image, 0))
-        #
-        # self.var_image_vgg19_style_features = self.extract_outputs_from_keras_model(
-        #     self.base_vgg19, self.vgg_style_output_layers)(tf.expand_dims(norm_var_image, 0))
-        self.var_image_vgg19_content_features = self.vgg_features(self.var_image, [self.vgg_content_output_layer])
-        self.var_image_vgg19_style_features   = self.vgg_features(self.var_image, self.vgg_style_output_layers)
-
+            self.base_vgg19 = tf.contrib.keras.applications.VGG19(weights=None, include_top=False)
 
         # Define losses
-        self.content_loss = self.content_loss(self.var_image_vgg19_content_features, self.content_vgg_features)
-        self.style_loss = self.style_loss(self.var_image_vgg19_style_features, self.style_vgg_features)
+        self.content_loss = self.calculate_content_loss(self.var_image)
+        self.style_loss = self.calculate_style_loss(self.var_image)
         self.histogram_loss = self.histogram_loss(self.var_image, self.input_content)
+
 
         self.losses = [self.content_loss, self.style_loss, self.histogram_loss]
         loss = self.alpha * self.content_loss + self.beta * self.style_loss + self.gamma * self.histogram_loss
@@ -102,6 +78,36 @@ class StyleTransferModel(general.tensorflow.BaseModelFn):
         return (grouped_train_op, loss)
 
 
+    def calculate_content_loss(self, var_img):
+        with tf.variable_scope('content_loss'):
+            content_vgg_features = self.vgg_features(
+                self.input_content, [self.vgg_content_output_layer])
+            var_image_vgg_features = self.vgg_features(
+                var_img,     [self.vgg_content_output_layer])
+
+        size = tf.cast(tf.reduce_prod(var_image_vgg_features.shape), tf.float32)
+        return tf.multiply(
+            1/(4*size),
+            tf.reduce_sum(tf.square(var_image_vgg_features - content_vgg_features)), name='content_loss')
+
+
+    def calculate_style_loss(self, var_img):
+        with tf.variable_scope('style_loss'):
+            style_vgg_features = self.vgg_features(
+                self.input_style, self.vgg_style_output_layers)
+            var_image_vgg_features = self.vgg_features(
+                var_img,          self.vgg_style_output_layers)
+
+            layers_losses = tf.stack(
+                [ self.style_layer_loss(i, s) for i,s in zip(var_image_vgg_features, style_vgg_features) ],
+                axis=0, name='layers_losses')
+
+            weighted_loss = tf.reduce_sum(
+                tf.multiply(layers_losses, self.vgg_style_output_layers_weights),
+                name='weighted_loss')
+
+            return weighted_loss
+
 
     def create_summaries(self):
         tf.summary.image("changed_image", tf.expand_dims(self.var_image, 0))
@@ -109,26 +115,6 @@ class StyleTransferModel(general.tensorflow.BaseModelFn):
         tf.summary.scalar("content_loss", self.content_loss)
         tf.summary.scalar("style_loss", self.style_loss)
 
-
-
-    def content_loss(self, img_vgg19, content_vgg19):
-        """ img_vgg19 and content_vgg19 are the activations of the last layer of vgg19 (block5_pool)
-        """
-        size = tf.cast(tf.reduce_prod(img_vgg19.shape), tf.float32)
-        with tf.variable_scope('content_loss'):
-            return tf.multiply(1/(4*size), tf.reduce_sum(tf.square(img_vgg19 - content_vgg19)), name='content_loss')
-
-
-    def style_loss(self, img_vgg19, style_vgg19):
-        """ img_vgg19 and style_vgg19 are lists of activations from all required layers (self.vgg_output_layers)
-        """
-        with tf.variable_scope('style_loss'):
-            layers_losses = tf.stack([ self.style_layer_loss(i, s) for i,s in zip(img_vgg19, style_vgg19) ], axis=0, name='layers_losses')
-            self.layers_losses = layers_losses
-            weighted_loss = tf.reduce_sum(
-                tf.multiply(layers_losses, self.vgg_style_output_layers_weights)
-                , name='weighted_loss')
-            return weighted_loss
 
     def histogram_loss(self, img, content):
         img_brightness = tf.reduce_mean(img/255., axis=2, keep_dims=True)
