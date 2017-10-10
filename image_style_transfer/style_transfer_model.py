@@ -37,8 +37,22 @@ class StyleTransferModel(general.tensorflow.BaseModelFn):
         self.summary_op = tf.summary.merge_all()
 
 
+
     def load_external_weights(self):
+        sess = tf.get_default_session()
         self.base_vgg19.load_weights(self.external_vgg_weights_dir + '/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5')
+
+    def load_content_image(self, img):
+        sess = tf.get_default_session()
+        sess.run(tf.assign(self.input_content, img))
+
+    def load_style_image(self, img):
+        sess = tf.get_default_session()
+        sess.run(tf.assign(self.input_style, img))
+
+    def initialize_var_image(self, noise_ratio):
+        sess = tf.get_default_session()
+        sess.run(tf.assign(self.var_image, self.generate_noisy_image(self.input_content, noise_ratio)))
 
 
     def vgg_features(self, img, layer_names):
