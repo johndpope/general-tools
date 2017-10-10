@@ -64,3 +64,5 @@ class ImagesLoader():
 
     def all_styles(self):
         return [ os.path.splitext(os.path.basename(x))[0] for x in glob.glob(self.styles_dir + "/*") ]
+    def all_contents(self):
+        return [ os.path.splitext(os.path.basename(x))[0] for x in glob.glob(self.content_dir + "/*") ]
