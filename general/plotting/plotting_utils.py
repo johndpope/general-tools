@@ -6,9 +6,9 @@ import numpy as np
 __all__ = [ 'gridplot', 'gridplot_sidebyside' ]
 
 
-imshow_plot = lambda ax, data: ax.imshow(data, interpolation='nearest', cmap=plt.cm.gray)
+imshow_plot = lambda ax, data, **params: ax.imshow(data, interpolation='nearest', cmap=plt.cm.gray, **params)
 
-def gridplot(data, num_cols=6, plot=imshow_plot, titles=None, base_figure_size=15):
+def gridplot(data, num_cols=6, plot=imshow_plot, titles=None, base_figure_size=15, **params):
     num_rows = data.shape[0] // num_cols + 1
 
     fig = plt.figure(figsize=(base_figure_size, base_figure_size*num_rows/num_cols))
@@ -17,7 +17,7 @@ def gridplot(data, num_cols=6, plot=imshow_plot, titles=None, base_figure_size=1
     for i in range(data.shape[0]):
         curr_data = data[i]
         ax = plt.Subplot(fig, gs[i])
-        imshow_plot(ax,curr_data)
+        imshow_plot(ax,curr_data,**params)
         if titles is not None:
             ax.set_title(titles[i])
         ax.set_xticks([])
